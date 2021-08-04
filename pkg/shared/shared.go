@@ -1,15 +1,20 @@
 package shared
 
 import (
-	"context"
+	"math/rand"
+	"time"
 
-	"gorm.io/gorm"
+	"github.com/willy182/evermos-flashsale/pkg/helper"
 )
 
-// SetSpanToGorm sets span to gorm settings, returns cloned DB
-func SetSpanToGorm(ctx context.Context, db *gorm.DB) *gorm.DB {
-	if ctx == nil {
-		return db
+// GenerateOrderID function for random number
+func GenerateOrderID(length int) string {
+	rand.Seed(time.Now().UTC().UnixNano())
+
+	charsLength := len(helper.NUMBERS)
+	result := make([]byte, length)
+	for i := 0; i < length; i++ {
+		result[i] = helper.NUMBERS[rand.Intn(charsLength)]
 	}
-	return db.WithContext(ctx)
+	return string(result)
 }

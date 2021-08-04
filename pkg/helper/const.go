@@ -7,4 +7,6 @@ const (
 	TableProduct = "products"
 	// TableOrder const
 	TableOrder = "orders"
+	// NUMBERS for setting short random number
+	NUMBERS = "0123456789"
 )
