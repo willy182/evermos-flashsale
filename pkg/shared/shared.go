@@ -9,6 +9,7 @@ import (
 
 // GenerateOrderID function for random number
 func GenerateOrderID(length int) string {
+	time.Sleep(time.Millisecond)
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	charsLength := len(helper.NUMBERS)
