@@ -15,9 +15,6 @@ func createDBConnection(descriptor string) *sql.DB {
 		return db
 	}
 
-	db.SetMaxIdleConns(10)
-	db.SetMaxOpenConns(10)
-
 	return db
 }
 
