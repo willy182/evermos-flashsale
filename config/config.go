@@ -1,12 +1,10 @@
 package config
 
-import (
-	"database/sql"
-)
+import "gorm.io/gorm"
 
 // Config main
 type Config struct {
-	DB *sql.DB
+	DB *gorm.DB
 }
 
 var conf *Config
