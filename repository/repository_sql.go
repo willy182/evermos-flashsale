@@ -2,71 +2,33 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
-	"sync"
 
-	"gorm.io/driver/postgres"
+	repoOrder "github.com/willy182/evermos-flashsale/repository/order"
+	repoProduct "github.com/willy182/evermos-flashsale/repository/product"
 	"gorm.io/gorm"
 )
 
-type (
-	// RepoSQL abstraction
-	RepoSQL interface {
-		WithTransaction(ctx context.Context, txFunc func(ctx context.Context, repo RepoSQL) error) (err error)
-		Free()
-	}
+// RepoSQL abstraction
+type RepoSQL struct {
+	db *gorm.DB
 
-	repoSQLImpl struct {
-		db *gorm.DB
-
-		// register all repository from modules
-	}
-)
-
-var (
-	globalRepoSQL RepoSQL
-)
-
-var (
-	once sync.Once
-)
-
-// SetSharedRepository set the global singleton "RepoSQL" implementation
-func SetSharedRepository(db *sql.DB) {
-	once.Do(func() {
-		setSharedRepoSQL(db)
-	})
-}
-
-// setSharedRepoSQL set the global singleton "RepoSQL" implementation
-func setSharedRepoSQL(db *sql.DB) {
-	gormDB, err := gorm.Open(postgres.New(postgres.Config{
-		Conn: db,
-	}), &gorm.Config{SkipDefaultTransaction: true})
-
-	if err != nil {
-		panic(err)
-	}
-
-	globalRepoSQL = NewRepositorySQL(gormDB)
-}
-
-// GetSharedRepoSQL returns the global singleton "RepoSQL" implementation
-func GetSharedRepoSQL() RepoSQL {
-	return globalRepoSQL
+	// register all repository from modules
+	OrderRepo   repoOrder.OrderRepository
+	ProductRepo repoProduct.ProductRepository
 }
 
 // NewRepositorySQL constructor
-func NewRepositorySQL(db *gorm.DB) RepoSQL {
-
-	return &repoSQLImpl{
-		db: db,
+func NewRepositorySQL(db *gorm.DB) *RepoSQL {
+	return &RepoSQL{
+		db:          db,
+		OrderRepo:   repoOrder.NewOrderRepoSQL(db),
+		ProductRepo: repoProduct.NewProductRepoSQL(db),
 	}
 }
 
 // WithTransaction run transaction for each repository with context, include handle canceled or timeout context
-func (r *repoSQLImpl) WithTransaction(ctx context.Context, txFunc func(ctx context.Context, repo RepoSQL) error) (err error) {
+func (r *RepoSQL) WithTransaction(ctx context.Context, txFunc func(ctx context.Context, repo *RepoSQL) error) (err error) {
 	tx := r.db.Begin()
 	err = tx.Error
 	if err != nil {
@@ -81,7 +43,7 @@ func (r *repoSQLImpl) WithTransaction(ctx context.Context, txFunc func(ctx conte
 		} else {
 			tx.Commit()
 		}
-		manager.Free()
+		manager.free()
 	}()
 
 	errChan := make(chan error)
@@ -106,6 +68,9 @@ func (r *repoSQLImpl) WithTransaction(ctx context.Context, txFunc func(ctx conte
 	}
 }
 
-func (r *repoSQLImpl) Free() {
+// free
+func (r *RepoSQL) free() {
 	// make nil all repository
+	r.OrderRepo = nil
+	r.ProductRepo = nil
 }

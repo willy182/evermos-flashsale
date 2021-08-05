@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/willy182/evermos-flashsale/model"
 	"github.com/willy182/evermos-flashsale/pkg/helper"
@@ -11,28 +10,12 @@ import (
 
 // FindByID method
 func (r *productRepoSQL) FindByID(ctx context.Context, id int) (result model.Product, err error) {
-	opName := "RepoProduct-FindByID"
-	defer func() {
-		if rec := recover(); rec != nil {
-			msg := fmt.Sprintf("scope: %s | panic: %v", opName, rec)
-			err = fmt.Errorf(msg)
-		}
-	}()
-
 	err = r.db.Table(helper.TableProduct).Where(`"id" = ?`, id).First(&result).Error
 	return
 }
 
 // Update method
 func (r *productRepoSQL) Update(ctx context.Context, id, qty int) (err error) {
-	opName := "RepoProduct-Update"
-	defer func() {
-		if rec := recover(); rec != nil {
-			msg := fmt.Sprintf("scope: %s | panic: %v", opName, rec)
-			err = fmt.Errorf(msg)
-		}
-	}()
-
 	product := &model.Product{}
 	err = r.db.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", id).Where("qty >= ?", qty).First(&product).Error
 	if err != nil {

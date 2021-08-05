@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// orderRepoSQL data of struct
 type orderRepoSQL struct {
 	db *gorm.DB
 }
