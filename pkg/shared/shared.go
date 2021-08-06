@@ -2,20 +2,15 @@ package shared
 
 import (
 	"math/rand"
+	"strconv"
 	"time"
-
-	"github.com/willy182/evermos-flashsale/pkg/helper"
 )
 
 // GenerateOrderID function for random number
-func GenerateOrderID(length int) string {
-	time.Sleep(time.Millisecond)
+func GenerateOrderID() string {
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	charsLength := len(helper.NUMBERS)
-	result := make([]byte, length)
-	for i := 0; i < length; i++ {
-		result[i] = helper.NUMBERS[rand.Intn(charsLength)]
-	}
-	return string(result)
+	randomString := rand.Int63n(time.Now().UnixNano())
+	result := strconv.FormatInt(randomString, 10)
+	return result
 }

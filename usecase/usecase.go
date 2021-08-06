@@ -3,7 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
-	"sync"
+	"log"
 	"time"
 
 	"github.com/willy182/evermos-flashsale/model"
@@ -11,10 +11,12 @@ import (
 	"github.com/willy182/evermos-flashsale/repository"
 )
 
+// IUsecase
 type IUsecase interface {
-	Checkout(ctx context.Context, params *[]model.ParamOrder) (err error)
+	Checkout(ctx context.Context, params model.ParamOrder) error
 }
 
+// orderUsecase
 type orderUsecase struct {
 	repo *repository.RepoSQL
 }
@@ -27,67 +29,49 @@ func NewUseCase(repo *repository.RepoSQL) IUsecase {
 }
 
 // Insert method
-func (uc *orderUsecase) Checkout(ctx context.Context, params *[]model.ParamOrder) (err error) {
+func (uc *orderUsecase) Checkout(ctx context.Context, param model.ParamOrder) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			msg := fmt.Sprintf("panic: %v", r)
+			log.Println(msg)
 			err = fmt.Errorf(msg)
 		}
 	}()
 
-	var (
-		wg         sync.WaitGroup
-		paramOrder model.Order
-	)
+	var paramOrder model.Order
+	now := time.Now()
+	orderTrx := shared.GenerateOrderID()
+	userID := param.UserID
+	for _, cart := range param.Cart {
+		if err := uc.repo.WithTransaction(ctx, func(ctx context.Context, manager *repository.RepoSQL) error {
+			qty := cart.Qty
+			price := cart.Price
+			totalPrice := qty * price
 
-	errChan := make(chan error)
-
-	for _, val := range *params {
-		if err = uc.repo.WithTransaction(ctx, func(ctx context.Context, manager *repository.RepoSQL) error {
-			now := time.Now()
-			paramOrder.OrderID = shared.GenerateOrderID(10)
-			paramOrder.UserID = val.UserID
+			paramOrder.OrderTrx = orderTrx
+			paramOrder.UserID = userID
+			paramOrder.ProductName = cart.Name
+			paramOrder.Price = price
+			paramOrder.Qty = qty
+			paramOrder.TotalPrice = totalPrice
 			paramOrder.CreatedAt = now
-			for _, cart := range val.Cart {
-				qty := cart.Qty
-				price := cart.Price
-				totalPrice := float64(qty) * price
-				paramOrder.ProductName = cart.Name
-				paramOrder.Price = price
-				paramOrder.Qty = qty
-				paramOrder.TotalPrice = totalPrice
 
-				wg.Add(1)
-				go func(id, qty int) {
-					defer wg.Done()
-					e := manager.ProductRepo.Update(ctx, id, qty)
-					if e != nil {
-						errChan <- e
-					}
+			cartID := cart.ID
+			e := manager.ProductRepo.Update(ctx, cartID, qty)
+			if e != nil {
+				log.Println(e.Error())
+				return e
+			}
 
-					e = manager.OrderRepo.Insert(ctx, &paramOrder)
-					if e != nil {
-						errChan <- e
-					}
-				}(cart.ID, cart.Qty)
+			e = manager.OrderRepo.Insert(ctx, &paramOrder)
+			if e != nil {
+				log.Println(e.Error())
+				return e
 			}
 
 			return nil
 		}); err != nil {
 			panic(err)
-		}
-	}
-
-	go func() {
-		defer close(errChan)
-		wg.Wait()
-	}()
-
-	// get offer data from buffered channel offerChan
-	for e := range errChan {
-		if e != nil {
-			err = e
-			return
 		}
 	}
 

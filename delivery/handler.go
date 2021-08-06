@@ -2,6 +2,8 @@ package delivery
 
 import (
 	"context"
+	"log"
+	"sync"
 
 	"github.com/willy182/evermos-flashsale/model"
 	"github.com/willy182/evermos-flashsale/usecase"
@@ -22,7 +24,7 @@ func NewDelivery(uc usecase.IUsecase) *IDelivery {
 func (d *IDelivery) Checkout() {
 	ctx := context.Background()
 
-	params := &[]model.ParamOrder{
+	params := []model.ParamOrder{
 		{
 			UserID: 1,
 			Cart: []model.Cart{
@@ -50,7 +52,7 @@ func (d *IDelivery) Checkout() {
 					Qty:   2,
 				},
 				{
-					ID:    4,
+					ID:    2,
 					Name:  "gamis",
 					Price: 100000,
 					Qty:   2,
@@ -84,7 +86,7 @@ func (d *IDelivery) Checkout() {
 					Qty:   3,
 				},
 				{
-					ID:    4,
+					ID:    2,
 					Name:  "gamis",
 					Price: 100000,
 					Qty:   3,
@@ -104,5 +106,42 @@ func (d *IDelivery) Checkout() {
 		},
 	}
 
-	d.uc.Checkout(ctx, params)
+	var wg sync.WaitGroup
+	errChan := make(chan error)
+
+	for _, val := range params {
+		var (
+			payload model.ParamOrder
+			carts   []model.Cart
+		)
+
+		payload.UserID = val.UserID
+		for _, c := range val.Cart {
+			var cart model.Cart
+			cart.ID = c.ID
+			cart.Name = c.Name
+			cart.Price = c.Price
+			cart.Qty = c.Qty
+			carts = append(carts, cart)
+		}
+
+		payload.Cart = carts
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			errChan <- d.uc.Checkout(ctx, payload)
+		}()
+	}
+
+	go func() {
+		defer close(errChan)
+		wg.Wait()
+	}()
+
+	for err := range errChan {
+		if err != nil {
+			log.Println("handler error", err)
+		}
+	}
 }
